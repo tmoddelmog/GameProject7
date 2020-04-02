@@ -1,6 +1,8 @@
 ﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
+using System;
+using System.Diagnostics;
 
 namespace MonoGameWindowsStarter
 {
@@ -11,6 +13,11 @@ namespace MonoGameWindowsStarter
     {
         GraphicsDeviceManager graphics;
         SpriteBatch spriteBatch;
+
+        Player plane;
+        Player[] viruses = new Player[new Random().Next(1,8)];
+        Texture2D gameOverTexture;
+        bool gameOver;
 
         public Game1()
         {
@@ -41,6 +48,62 @@ namespace MonoGameWindowsStarter
             spriteBatch = new SpriteBatch(GraphicsDevice);
 
             // TODO: use this.Content to load your game content here
+            // city background
+            var backgroundTexture = Content.Load<Texture2D>("city");
+            var backgroundSprite = new StaticSprite(backgroundTexture);
+            var backgroundLayer = new ParallaxLayer(this);
+            backgroundLayer.Sprites.Add(backgroundSprite);
+            backgroundLayer.DrawOrder = 1;
+            Components.Add(backgroundLayer);
+
+            // city midground
+            var midTexture = Content.Load<Texture2D>("city2");
+            var midSprite = new StaticSprite(midTexture, new Vector2(0, 240));
+            var midLayer = new ParallaxLayer(this);
+            midLayer.Sprites.Add(midSprite);
+            midLayer.ScrollController.Speed = 40f;
+            midLayer.DrawOrder = 2;
+            Components.Add(midLayer);
+
+            // plane
+            plane = new Player(Content.Load<Texture2D>("plane"),
+                    new Vector2(0, 240),
+                    new Rectangle { X = 0, Y = 0, Width = 200, Height = 109 });
+            plane.UpdateDirection = () =>
+            {
+                Vector2 direction = Vector2.Zero;
+                var keyboard = Keyboard.GetState();
+                var s = 5;
+                if (keyboard.IsKeyDown(Keys.Left))  direction.X -= s;
+                if (keyboard.IsKeyDown(Keys.Right)) direction.X += s;
+                if (keyboard.IsKeyDown(Keys.Up))    direction.Y -= s;
+                if (keyboard.IsKeyDown(Keys.Down))  direction.Y += s;
+                return direction;
+            };
+            var planeLayer = new ParallaxLayer(this);
+            planeLayer.Sprites.Add(plane);
+            planeLayer.DrawOrder = 3;
+            Components.Add(planeLayer);
+
+            // viruses
+            var virusLayer = new ParallaxLayer(this);
+            var r = new Random();
+            for (var i = 0; i < viruses.Length; i++)
+            {
+                viruses[i] = new Player(Content.Load<Texture2D>("virus"),
+                             new Vector2(r.Next(400, 800), r.Next(480)),
+                             new Rectangle { X = 0, Y = 0, Width = 34, Height = 34 });
+                viruses[i].UpdateDirection = () =>
+                {
+                    return new Vector2(-2, 0);
+                };
+                virusLayer.Sprites.Add(viruses[i]);
+            }
+            virusLayer.DrawOrder = 4;
+            Components.Add(virusLayer);
+
+            gameOverTexture = Content.Load<Texture2D>("gameOver");
+            gameOver = false;
         }
 
         /// <summary>
@@ -63,6 +126,13 @@ namespace MonoGameWindowsStarter
                 Exit();
 
             // TODO: Add your update logic here
+            foreach (Player v in viruses)
+            {
+                v.Update(gameTime);
+                if (plane.CollidesWith(v.Bounds)) gameOver = true;
+            }
+
+            plane.Update(gameTime);
 
             base.Update(gameTime);
         }
@@ -76,8 +146,17 @@ namespace MonoGameWindowsStarter
             GraphicsDevice.Clear(Color.CornflowerBlue);
 
             // TODO: Add your drawing code here
-
             base.Draw(gameTime);
+
+            spriteBatch.Begin();
+            if (gameOver)
+            {
+                spriteBatch.Draw(
+                    gameOverTexture,
+                    new Vector2(250, 200),
+                    Color.White);
+            }
+            spriteBatch.End();
         }
     }
 }
